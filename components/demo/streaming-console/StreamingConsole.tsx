@@ -73,8 +73,6 @@ export default function StreamingConsole() {
 
   // Set the configuration for the Live API
   useEffect(() => {
-    // Using `any` for config to accommodate `speechConfig`, which is not in the
-    // current TS definitions but is used in the working reference example.
     const config: any = {
       responseModalities: [Modality.TEXT], // Changed to TEXT to receive JSON
       inputAudioTranscription: {},
@@ -89,7 +87,7 @@ export default function StreamingConsole() {
     };
 
     setConfig(config);
-  }, [setConfig, systemPrompt, voice]);
+  }, [setConfig, systemPrompt]);
 
   useEffect(() => {
     const { addTurn, updateLastTurn } = useLogStore.getState();
