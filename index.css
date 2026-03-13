@@ -665,22 +665,21 @@ header .export-button {
 
 .language-status {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 8px;
+  gap: 12px;
   align-items: center;
 }
 
 .lang-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: var(--Neutral-15);
-  border: 1px solid var(--Neutral-30);
-  font-size: 11px;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12px;
   transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
 }
 
 .lang-chip.staff {

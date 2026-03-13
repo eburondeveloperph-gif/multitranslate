@@ -23,7 +23,7 @@ import cn from 'classnames';
 // FIX: Import React to use React.CSSProperties
 import React, { memo, ReactNode, useEffect, useRef, useState } from 'react';
 import { AudioRecorder } from '../../../lib/audio-recorder';
-import { useLogStore, useSettings } from '../../../lib/state';
+import { useLogStore } from '../../../lib/state';
 import { useAuth, clearUserConversations } from '../../../lib/auth';
 
 import { useLiveAPIContext } from '../../../contexts/LiveAPIContext';
@@ -39,7 +39,6 @@ function ControlTray({ children }: ControlTrayProps) {
   const [micVolume, setMicVolume] = useState(0);
   const connectButtonRef = useRef<HTMLButtonElement>(null);
   const { session, user } = useAuth();
-  const { activeGuestLanguage, language1 } = useSettings();
 
   const {
     client,
@@ -175,16 +174,6 @@ function ControlTray({ children }: ControlTrayProps) {
         </nav>
 
         <div className={cn('connection-container', { connected })}>
-          <div className="language-status">
-            <div className="lang-chip staff">
-              <span className="label">Staff:</span>
-              <span className="value">{language1}</span>
-            </div>
-            <div className={cn('lang-chip guest', { active: !!activeGuestLanguage })}>
-              <span className="label">Guest:</span>
-              <span className="value">{activeGuestLanguage || 'Detecting...'}</span>
-            </div>
-          </div>
           <div className="connection-button-container">
             <button
               ref={connectButtonRef}
