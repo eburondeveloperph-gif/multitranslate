@@ -54,7 +54,7 @@ export function useLiveApi({
   const [volume, setVolume] = useState(0);
   const [connected, setConnected] = useState(false);
   const [config, setConfig] = useState<LiveConnectConfig>({});
-  const [isTtsMuted, setIsTtsMuted] = useState(true); // Mute by default to avoid double audio
+  const [isTtsMuted, setIsTtsMuted] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
   const toggleTtsMute = useCallback(() => {
@@ -72,8 +72,6 @@ export function useLiveApi({
     if (!audioStreamerRef.current) {
       audioContext({ id: 'audio-out' }).then((audioCtx: AudioContext) => {
         audioStreamerRef.current = new AudioStreamer(audioCtx);
-        // Set initial gain based on isTtsMuted
-        audioStreamerRef.current.gainNode.gain.value = isTtsMuted ? 0 : 1;
         audioStreamerRef.current.onPlayingChange = (isPlaying) => {
           setIsAudioPlaying(isPlaying);
         };

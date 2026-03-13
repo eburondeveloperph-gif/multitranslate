@@ -74,24 +74,13 @@ export default function StreamingConsole() {
   // Set the configuration for the Live API
   useEffect(() => {
     const config: any = {
-      responseModalities: [Modality.AUDIO, Modality.TEXT], // Include AUDIO to satisfy backend
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: voice === 'Puck' ? 'Puck' : 'Kore' },
-        },
-      },
+      responseModalities: [Modality.TEXT],
       inputAudioTranscription: {},
-      systemInstruction: {
-        parts: [
-          {
-            text: systemPrompt,
-          },
-        ],
-      },
+      systemInstruction: systemPrompt,
     };
 
     setConfig(config);
-  }, [setConfig, systemPrompt, voice]);
+  }, [setConfig, systemPrompt]);
 
   useEffect(() => {
     const { addTurn, updateLastTurn } = useLogStore.getState();
