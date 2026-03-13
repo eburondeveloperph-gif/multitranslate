@@ -3,7 +3,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import WelcomeScreen from '../welcome-screen/WelcomeScreen';
 import { GoogleGenAI, Modality, LiveServerContent } from '@google/genai';
 
@@ -17,7 +17,7 @@ import { useHistoryStore } from '../../../lib/history';
 import { useAuth, updateUserConversations } from '../../../lib/auth';
 
 export default function StreamingConsole() {
-  const { client, setConfig } = useLiveAPIContext();
+  const { client, setConfig, error: liveApiError } = useLiveAPIContext();
   const { 
     systemPrompt, 
     voice, 
@@ -30,13 +30,15 @@ export default function StreamingConsole() {
   const { user } = useAuth();
   const { isTtsMuted } = useLiveAPIContext();
   const responseAccumulatorRef = useRef<string>('');
+  const [ttsError, setTtsError] = useState<string | null>(null);
 
   const turns = useLogStore(state => state.turns);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const playTTS = async (text: string) => {
+  const playTTS = async (text: string, retryCount = 0) => {
     if (isTtsMuted) return;
     try {
+      setTtsError(null);
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
@@ -66,8 +68,20 @@ export default function StreamingConsole() {
         streamer.addPCM16(bytes);
         await streamer.resume();
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('TTS Error:', e);
+      if (retryCount < 2) {
+        console.log(`Retrying TTS (attempt ${retryCount + 1})...`);
+        setTimeout(() => playTTS(text, retryCount + 1), 1000 * (retryCount + 1));
+      } else {
+        let errorMessage = e.message || 'An unknown error occurred during audio generation.';
+        if (errorMessage.includes('quota')) {
+          errorMessage = 'Audio generation quota exceeded. Please try again later.';
+        } else if (errorMessage.includes('invalid argument')) {
+          errorMessage = 'Invalid configuration argument for audio generation.';
+        }
+        setTtsError(errorMessage);
+      }
     }
   };
 
@@ -217,6 +231,25 @@ export default function StreamingConsole() {
 
   return (
     <div className="transcription-container">
+      {(liveApiError || ttsError) && (
+        <div className="error-banner" style={{
+          backgroundColor: '#ffebee',
+          color: '#c62828',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          margin: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '14px',
+          fontWeight: 500,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          zIndex: 10
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>error</span>
+          <span>{liveApiError || ttsError}</span>
+        </div>
+      )}
       <WelcomeScreen />
     </div>
   );

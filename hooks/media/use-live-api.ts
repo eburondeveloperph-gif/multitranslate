@@ -34,6 +34,7 @@ export type UseLiveApiResults = {
   connect: () => Promise<void>;
   disconnect: () => void;
   connected: boolean;
+  error: string | null;
 
   volume: number;
   isTtsMuted: boolean;
@@ -56,6 +57,7 @@ export function useLiveApi({
   const [config, setConfig] = useState<LiveConnectConfig>({});
   const [isTtsMuted, setIsTtsMuted] = useState(true); // Mute by default to avoid double audio
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const toggleTtsMute = useCallback(() => {
     setIsTtsMuted(prev => {
@@ -97,10 +99,23 @@ export function useLiveApi({
   useEffect(() => {
     const onOpen = () => {
       setConnected(true);
+      setError(null);
     };
 
     const onClose = () => {
       setConnected(false);
+    };
+
+    const onError = (e: ErrorEvent) => {
+      let errorMessage = e.message || 'An unknown error occurred.';
+      if (errorMessage.includes('quota')) {
+        errorMessage = 'Quota exceeded. Please try again later or check your API key limits.';
+      } else if (errorMessage.includes('invalid argument')) {
+        errorMessage = 'Invalid configuration argument provided to the API.';
+      } else if (errorMessage.includes('not found')) {
+        errorMessage = 'The requested model was not found or is not supported.';
+      }
+      setError(errorMessage);
     };
 
     const stopAudioStreamer = () => {
@@ -124,6 +139,7 @@ export function useLiveApi({
     // Bind event listeners
     client.on('open', onOpen);
     client.on('close', onClose);
+    client.on('error', onError);
     client.on('interrupted', stopAudioStreamer);
     client.on('audio', onAudio);
     client.on('turncomplete', onTurnComplete);
@@ -132,23 +148,36 @@ export function useLiveApi({
       // Clean up event listeners
       client.off('open', onOpen);
       client.off('close', onClose);
+      client.off('error', onError);
       client.off('interrupted', stopAudioStreamer);
       client.off('audio', onAudio);
       client.off('turncomplete', onTurnComplete);
     };
   }, [client]);
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (retryCount = 0) => {
     if (!config) {
       throw new Error('config has not been set');
     }
+    setError(null);
     client.disconnect();
-    await client.connect(config);
+    const success = await client.connect(config);
+    if (!success) {
+      // If connect returns false, the error event should have been emitted and caught by onError
+      setConnected(false);
+      
+      // Retry logic for transient errors (max 2 retries)
+      if (retryCount < 2) {
+        console.log(`Retrying connection (attempt ${retryCount + 1})...`);
+        setTimeout(() => connect(retryCount + 1), 1000 * (retryCount + 1));
+      }
+    }
   }, [client, config]);
 
   const disconnect = useCallback(async () => {
     client.disconnect();
     setConnected(false);
+    setError(null);
   }, [setConnected, client]);
 
   return {
@@ -158,6 +187,7 @@ export function useLiveApi({
     connect,
     connected,
     disconnect,
+    error,
     volume,
     isTtsMuted,
     toggleTtsMute,
