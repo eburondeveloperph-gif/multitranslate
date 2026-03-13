@@ -1,0 +1,7 @@
+{
+  "name": "Copy of multilinguahe",
+  "description": "Real-time dual translation",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
