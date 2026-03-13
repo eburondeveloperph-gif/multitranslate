@@ -40,6 +40,7 @@ export class AudioStreamer {
   private endOfQueueAudioSource: AudioBufferSourceNode | null = null;
 
   public onComplete = () => {};
+  public onPlayingChange?: (isPlaying: boolean) => void;
 
   constructor(public context: AudioContext) {
     this.gainNode = this.context.createGain();
@@ -122,6 +123,7 @@ export class AudioStreamer {
     // Start playing if not already playing.
     if (!this.isPlaying) {
       this.isPlaying = true;
+      if (this.onPlayingChange) this.onPlayingChange(true);
       // Initialize scheduledTime only when we start playing
       this.scheduledTime = this.context.currentTime + this.initialBufferTime;
       this.scheduleNextBuffer();
@@ -160,7 +162,13 @@ export class AudioStreamer {
             this.endOfQueueAudioSource === source
           ) {
             this.endOfQueueAudioSource = null;
-            this.onComplete();
+            if (this.isStreamComplete) {
+              if (this.isPlaying) {
+                this.isPlaying = false;
+                if (this.onPlayingChange) this.onPlayingChange(false);
+              }
+              this.onComplete();
+            }
           }
         };
       }
@@ -192,7 +200,6 @@ export class AudioStreamer {
 
     if (this.audioQueue.length === 0) {
       if (this.isStreamComplete) {
-        this.isPlaying = false;
         if (this.checkInterval) {
           clearInterval(this.checkInterval);
           this.checkInterval = null;
@@ -217,10 +224,18 @@ export class AudioStreamer {
   }
 
   stop() {
-    this.isPlaying = false;
+    if (this.isPlaying) {
+      this.isPlaying = false;
+      if (this.onPlayingChange) this.onPlayingChange(false);
+    }
     this.isStreamComplete = true;
     this.audioQueue = [];
     this.scheduledTime = this.context.currentTime;
+
+    if (this.endOfQueueAudioSource) {
+      this.endOfQueueAudioSource.onended = null;
+      this.endOfQueueAudioSource = null;
+    }
 
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
@@ -237,6 +252,8 @@ export class AudioStreamer {
       this.gainNode = this.context.createGain();
       this.gainNode.connect(this.context.destination);
     }, 200);
+
+    this.onComplete();
   }
 
   async resume() {
@@ -250,7 +267,13 @@ export class AudioStreamer {
 
   complete() {
     this.isStreamComplete = true;
-    this.onComplete();
+    if (this.audioQueue.length === 0 && !this.endOfQueueAudioSource) {
+      if (this.isPlaying) {
+        this.isPlaying = false;
+        if (this.onPlayingChange) this.onPlayingChange(false);
+      }
+      this.onComplete();
+    }
   }
 }
 

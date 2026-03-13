@@ -47,6 +47,7 @@ function ControlTray({ children }: ControlTrayProps) {
     disconnect,
     isTtsMuted,
     toggleTtsMute,
+    isAudioPlaying,
   } = useLiveAPIContext();
 
   useEffect(() => {
@@ -61,8 +62,14 @@ function ControlTray({ children }: ControlTrayProps) {
     }
   }, [connected]);
 
+  const isAudioPlayingRef = useRef(isAudioPlaying);
+  useEffect(() => {
+    isAudioPlayingRef.current = isAudioPlaying;
+  }, [isAudioPlaying]);
+
   useEffect(() => {
     const onData = (base64: string) => {
+      if (isAudioPlayingRef.current) return;
       client.sendRealtimeInput([
         {
           mimeType: 'audio/pcm;rate=16000',

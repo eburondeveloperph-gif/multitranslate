@@ -156,13 +156,13 @@ export default function StreamingConsole() {
     client.on('inputTranscription', handleInputTranscription);
     client.on('outputTranscription', handleOutputTranscription);
     client.on('content', handleContent);
-    client.on('turncomplete', handleTurnComplete);
+    client.on('audioplaybackcomplete', handleTurnComplete);
 
     return () => {
       client.off('inputTranscription', handleInputTranscription);
       client.off('outputTranscription', handleOutputTranscription);
       client.off('content', handleContent);
-      client.off('turncomplete', handleTurnComplete);
+      client.off('audioplaybackcomplete', handleTurnComplete);
     };
   }, [client, addHistoryItem, user, language1, language2]);
 

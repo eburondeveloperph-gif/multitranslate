@@ -65,6 +65,8 @@ export interface LiveClientEventTypes {
   ) => void;
   // Emitted when the current turn is complete
   turncomplete: () => void;
+  // Emitted when audio playback finishes
+  audioplaybackcomplete: () => void;
   inputTranscription: (text: string, isFinal: boolean) => void;
   outputTranscription: (text: string, isFinal: boolean) => void;
 }
@@ -77,6 +79,10 @@ export class GenAILiveClient {
   // FIX: Expose on/off methods.
   public on = this.emitter.on.bind(this.emitter);
   public off = this.emitter.off.bind(this.emitter);
+
+  public emitAudioPlaybackComplete() {
+    this.emitter.emit('audioplaybackcomplete');
+  }
 
   public readonly model: string = DEFAULT_LIVE_API_MODEL;
 

@@ -38,6 +38,7 @@ export type UseLiveApiResults = {
   volume: number;
   isTtsMuted: boolean;
   toggleTtsMute: () => void;
+  isAudioPlaying: boolean;
 };
 
 export function useLiveApi({
@@ -54,6 +55,7 @@ export function useLiveApi({
   const [connected, setConnected] = useState(false);
   const [config, setConfig] = useState<LiveConnectConfig>({});
   const [isTtsMuted, setIsTtsMuted] = useState(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
   const toggleTtsMute = useCallback(() => {
     setIsTtsMuted(prev => {
@@ -70,6 +72,12 @@ export function useLiveApi({
     if (!audioStreamerRef.current) {
       audioContext({ id: 'audio-out' }).then((audioCtx: AudioContext) => {
         audioStreamerRef.current = new AudioStreamer(audioCtx);
+        audioStreamerRef.current.onPlayingChange = (isPlaying) => {
+          setIsAudioPlaying(isPlaying);
+        };
+        audioStreamerRef.current.onComplete = () => {
+          client.emitAudioPlaybackComplete();
+        };
         audioStreamerRef.current
           .addWorklet<any>('vumeter-out', VolMeterWorket, (ev: any) => {
             setVolume(ev.data.volume);
@@ -105,11 +113,18 @@ export function useLiveApi({
       }
     };
 
+    const onTurnComplete = () => {
+      if (audioStreamerRef.current) {
+        audioStreamerRef.current.complete();
+      }
+    };
+
     // Bind event listeners
     client.on('open', onOpen);
     client.on('close', onClose);
     client.on('interrupted', stopAudioStreamer);
     client.on('audio', onAudio);
+    client.on('turncomplete', onTurnComplete);
 
     return () => {
       // Clean up event listeners
@@ -117,6 +132,7 @@ export function useLiveApi({
       client.off('close', onClose);
       client.off('interrupted', stopAudioStreamer);
       client.off('audio', onAudio);
+      client.off('turncomplete', onTurnComplete);
     };
   }, [client]);
 
@@ -143,5 +159,6 @@ export function useLiveApi({
     volume,
     isTtsMuted,
     toggleTtsMute,
+    isAudioPlaying,
   };
 }
