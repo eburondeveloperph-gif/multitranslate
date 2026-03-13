@@ -23,13 +23,13 @@ export default function StreamingConsole() {
     voice, 
     language1, 
     language2, 
-    currentSpeaker, 
     activeGuestLanguage, 
     setActiveGuestLanguage 
   } = useSettings();
   const { addHistoryItem } = useHistoryStore();
   const { user } = useAuth();
   const { isTtsMuted } = useLiveAPIContext();
+  const responseAccumulatorRef = useRef<string>('');
 
   const turns = useLogStore(state => state.turns);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -77,13 +77,6 @@ export default function StreamingConsole() {
     // current TS definitions but is used in the working reference example.
     const config: any = {
       responseModalities: [Modality.TEXT], // Changed to TEXT to receive JSON
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: {
-            voiceName: voice,
-          },
-        },
-      },
       inputAudioTranscription: {},
       outputAudioTranscription: {},
       systemInstruction: {
@@ -116,9 +109,8 @@ export default function StreamingConsole() {
       // If it's final, send the structured input to the model
       if (isFinal && text.trim()) {
         const structuredInput = {
-          speaker_role: currentSpeaker,
           transcript: text.trim(),
-          detected_language: currentSpeaker === 'Staff Speaking' ? language1 : 'unknown',
+          detected_language: 'unknown',
           active_guest_language: activeGuestLanguage
         };
         client.send([{ text: JSON.stringify(structuredInput) }]);
@@ -141,6 +133,22 @@ export default function StreamingConsole() {
       
       if (!text) return;
 
+      responseAccumulatorRef.current += text;
+      
+      // Optional: show raw text in UI while accumulating
+      const turns = useLogStore.getState().turns;
+      const last = turns[turns.length - 1];
+      if (last?.role === 'agent' && !last.isFinal) {
+        updateLastTurn({ text: responseAccumulatorRef.current });
+      } else {
+        addTurn({ role: 'agent', text: responseAccumulatorRef.current, isFinal: false });
+      }
+    };
+
+    const handleTurnComplete = () => {
+      const text = responseAccumulatorRef.current;
+      responseAccumulatorRef.current = '';
+
       try {
         const json = JSON.parse(text);
         if (json.action === 'translate' && json.translated_text) {
@@ -149,70 +157,45 @@ export default function StreamingConsole() {
           }
 
           playTTS(json.translated_text);
-
-          const turns = useLogStore.getState().turns;
-          const last = turns[turns.length - 1];
-
-          if (last?.role === 'agent' && !last.isFinal) {
-            updateLastTurn({
-              text: last.text + json.translated_text,
-            });
-          } else {
-            addTurn({ 
-              role: 'agent', 
-              text: json.translated_text, 
-              isFinal: false 
-            });
-          }
+          updateLastTurn({ text: json.translated_text, isFinal: true });
         } else if (json.action === 'ignore') {
           console.log('Model ignored the turn:', json.reason);
+          updateLastTurn({ text: '', isFinal: true });
+        } else {
+          updateLastTurn({ isFinal: true });
         }
       } catch (e) {
         console.error('Failed to parse model response as JSON:', text, e);
-        // Fallback: just show the raw text if it's not JSON
-        const turns = useLogStore.getState().turns;
-        const last = turns[turns.length - 1];
-        if (last?.role === 'agent' && !last.isFinal) {
-          updateLastTurn({ text: last.text + text });
-        } else {
-          addTurn({ role: 'agent', text, isFinal: false });
-        }
-      }
-    };
-
-    const handleTurnComplete = () => {
-      const { turns, updateLastTurn } = useLogStore.getState();
-      const last = turns[turns.length - 1];
-
-      if (last && !last.isFinal) {
         updateLastTurn({ isFinal: true });
-        const updatedTurns = useLogStore.getState().turns;
+      }
 
-        if (user) {
-          updateUserConversations(user.id, updatedTurns);
+      const { turns } = useLogStore.getState();
+      const updatedTurns = turns;
+
+      if (user) {
+        updateUserConversations(user.id, updatedTurns);
+      }
+
+      const finalAgentTurn = updatedTurns[updatedTurns.length - 1];
+
+      if (finalAgentTurn?.role === 'agent' && finalAgentTurn?.text) {
+        const agentTurnIndex = updatedTurns.length - 1;
+        let correspondingUserTurn = null;
+        for (let i = agentTurnIndex - 1; i >= 0; i--) {
+          if (updatedTurns[i].role === 'user') {
+            correspondingUserTurn = updatedTurns[i];
+            break;
+          }
         }
 
-        const finalAgentTurn = updatedTurns[updatedTurns.length - 1];
-
-        if (finalAgentTurn?.role === 'agent' && finalAgentTurn?.text) {
-          const agentTurnIndex = updatedTurns.length - 1;
-          let correspondingUserTurn = null;
-          for (let i = agentTurnIndex - 1; i >= 0; i--) {
-            if (updatedTurns[i].role === 'user') {
-              correspondingUserTurn = updatedTurns[i];
-              break;
-            }
-          }
-
-          if (correspondingUserTurn?.text) {
-            const translatedText = finalAgentTurn.text.trim();
-            addHistoryItem({
-              sourceText: correspondingUserTurn.text.trim(),
-              translatedText: translatedText,
-              lang1: language1,
-              lang2: activeGuestLanguage || language2
-            });
-          }
+        if (correspondingUserTurn?.text) {
+          const translatedText = finalAgentTurn.text.trim();
+          addHistoryItem({
+            sourceText: correspondingUserTurn.text.trim(),
+            translatedText: translatedText,
+            lang1: language1,
+            lang2: activeGuestLanguage || language2
+          });
         }
       }
     };
@@ -228,7 +211,7 @@ export default function StreamingConsole() {
       client.off('content', handleContent);
       client.off('turncomplete', handleTurnComplete);
     };
-  }, [client, addHistoryItem, user, language1, language2, currentSpeaker, activeGuestLanguage, setActiveGuestLanguage]);
+  }, [client, addHistoryItem, user, language1, language2, activeGuestLanguage, setActiveGuestLanguage]);
 
   return (
     <div className="transcription-container">

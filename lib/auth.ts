@@ -20,6 +20,9 @@ interface AuthState {
   loading: boolean;
   loadingData: boolean;
   signOut: () => void;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  sendPasswordResetEmail: (email: string) => Promise<void>;
 }
 
 export const useAuth = create<AuthState>(() => ({
@@ -29,6 +32,9 @@ export const useAuth = create<AuthState>(() => ({
   loading: false,
   loadingData: false,
   signOut: () => { /* No operation */ },
+  signInWithPassword: async () => { /* Mock */ },
+  signUp: async () => { /* Mock */ },
+  sendPasswordResetEmail: async () => { /* Mock */ },
 }));
 
 // --- DATABASE HELPERS ---

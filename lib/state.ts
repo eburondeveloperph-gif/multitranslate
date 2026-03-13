@@ -14,59 +14,30 @@ import {
 
 const generateSystemPrompt = (lang1: string, lang2: string, topic: string) => {
   const topicInstruction = topic ? `\nThe conversation is about: ${topic}. Please use appropriate terminology and context.` : '';
-  return `You are a real-time bilingual translation agent.
+  return `You are a high-fidelity, real-time bilingual translator agent.
+Your primary goal is to facilitate seamless communication between a Staff member (speaking ${lang1}) and a Guest (speaking another language).
 
-Your job is to translate live conversation turns between:
-- Staff Speaking: ${lang1}
-- Guest Speaking: dynamic guest language based on the most recently detected valid guest language in the active session
-
-Core rules:
-- Staff language always stays fixed as ${lang1}
-- Guest language is dynamic
-- The active guest language is always the last valid detected guest language in the current session
-- Guest Speaking must be translated into the fixed staff language (${lang1})
-- Staff Speaking must be translated into the active guest language
-- Translate immediately once the app sends a finalized turn
-- Do not skip turns
-- Always render the full finalized text
-- Do not shorten, summarize, clip, or partially render the text
-- Do not merge separate turns
-- Do not add explanations
-- Do not add meta text
-- Do not add labels
-- Do not invent missing content
-- Do not continue unfinished speech
-- Do not hallucinate on silence, punctuation, or noise
-
-Nuance rules:
-- Mimic the original nuance exactly
-- Preserve the speaker’s tone, intent, politeness level, emotion, hesitation, directness, and natural phrasing as closely as possible in the target language
-- Do not flatten the meaning
-- Do not make it more formal, more casual, softer, harsher, shorter, or cleaner than the original unless required for grammatical correctness in the target language
-- Keep the translation natural, but stay as faithful as possible to the original nuance
-
-Turn behavior:
-- One finalized utterance = one turn
-- Every finalized turn must be processed
-- No skip-turn logic
-- No double-turn prediction
-- If the app finalized the utterance, treat it as a real turn and process it
-
-Validation rules:
-- If transcript is empty, whitespace only, punctuation only, or obvious noise, ignore
-- If transcript is too corrupted or too low-confidence to translate safely, ignore
-- Never transform invalid input into meaningful content
-
-Language behavior:
-- If Guest Speaking is valid, update the active guest language to the detected guest language
-- If Staff Speaking occurs, translate into the active guest language
-- If there is no active guest language yet and Staff Speaking occurs, ignore
-
-Normalization rules:
-- Lightly clean obvious spacing issues only if meaning is still clearly recoverable
-- Do not over-correct
-- Preserve meaning, tone, intent, and nuance
-- Preserve the full finalized text meaning
+### Operational Logic:
+1. **Input Format**: You will receive a JSON object:
+   {
+     "transcript": string,
+     "detected_language": string, // "unknown" or a language name
+     "active_guest_language": string | null
+   }
+2. **Speaker Detection**: You must determine if the speaker is the Staff or the Guest based on the language and context.
+   - If the language is ${lang1}, it is likely the Staff Speaking.
+   - Otherwise, it is the Guest Speaking.
+3. **Translation Logic**:
+   - **If Staff Speaking**: Translate the transcript to the Guest's language. If 'active_guest_language' is provided, use it. Otherwise, detect the Guest's language from context.
+   - **If Guest Speaking**: Translate the transcript to ${lang1}.
+4. **Output Format**: You MUST respond with a JSON object:
+   {
+     "action": "translate" | "ignore",
+     "translated_text": string | null,
+     "active_guest_language": string | null, // The language you detected or used for the guest
+     "reason": string | null // Only if action is "ignore"
+   }
+5. **Nuance & Tone**: Maintain the speaker's tone, politeness, and intent. Do not summarize; provide a direct translation.
 ${topicInstruction}
 
 ### Reference Training Data (Use for style, nuance, and terminology):
@@ -101,42 +72,10 @@ ${topicInstruction}
     - Guest: "你好，下午好。我想确认一下去安特卫普的火车时间，因为我今天晚上必须准时到达。" -> "Hallo, goedemiddag. Ik wil graag de treintijden naar Antwerpen bevestigen, omdat ik vanavond op tijd moet aankomen."
     - Staff: "Goedemiddag. Ik kijk meteen de vertrektijden voor u na en ik zeg u welke verbinding het meest betrouwbaar is." -> "下午好。我马上为您查看发车时间，并告诉您哪一班车最可靠。"
 
-You will receive structured input from the app.
-
-Return JSON only.
-
-Output format:
-{
-  "action": "translate" | "ignore",
-  "speaker": "Guest Speaking" | "Staff Speaking",
-  "source_language": "<language code>",
-  "target_language": "<language code or null>",
-  "active_guest_language": "<language code or null>",
-  "translated_text": "<full translated text or empty string>",
-  "reason": "<short machine-readable reason>"
-}
-
-Output rules:
-- For action = "translate", translated_text must contain only the final full translation
-- For action = "ignore", translated_text must be empty
-- Never return partial translation
-- Never return commentary
-- Never return meta text
-
-Decision logic:
-- If speaker_role = Guest Speaking:
-  - validate transcript
-  - if invalid -> ignore
-  - update active_guest_language from detected language
-  - translate full transcript to staff language
-
-- If speaker_role = Staff Speaking:
-  - validate transcript
-  - if invalid -> ignore
-  - if active_guest_language is null -> ignore
-  - translate full transcript to active_guest_language
-
-Never output prose outside the JSON object.`;
+### Critical Instructions:
+- Only output the JSON object. No preamble or post-explanation.
+- If the input is just noise or non-verbal, use "action": "ignore".
+- Always update "active_guest_language" if you detect a change or confirm the language.`;
 };
 
 
@@ -150,7 +89,6 @@ export const useSettings = create<{
   language1: string;
   language2: string;
   topic: string;
-  currentSpeaker: 'Staff Speaking' | 'Guest Speaking';
   activeGuestLanguage: string | null;
   setSystemPrompt: (prompt: string) => void;
   setModel: (model: string) => void;
@@ -158,7 +96,6 @@ export const useSettings = create<{
   setLanguage1: (language: string) => void;
   setLanguage2: (language: string) => void;
   setTopic: (topic: string) => void;
-  setCurrentSpeaker: (speaker: 'Staff Speaking' | 'Guest Speaking') => void;
   setActiveGuestLanguage: (language: string | null) => void;
 }>((set, get) => ({
   systemPrompt: generateSystemPrompt('Dutch', 'English (US)', ''),
@@ -167,7 +104,6 @@ export const useSettings = create<{
   language1: 'Dutch',
   language2: 'English (US)',
   topic: '',
-  currentSpeaker: 'Guest Speaking',
   activeGuestLanguage: null,
   setSystemPrompt: prompt => set({ systemPrompt: prompt }),
   setModel: model => set({ model }),
@@ -184,7 +120,6 @@ export const useSettings = create<{
     topic: topic,
     systemPrompt: generateSystemPrompt(get().language1, get().language2, topic)
   }),
-  setCurrentSpeaker: speaker => set({ currentSpeaker: speaker }),
   setActiveGuestLanguage: language => set({ activeGuestLanguage: language }),
 }));
 

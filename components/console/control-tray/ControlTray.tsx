@@ -23,7 +23,7 @@ import cn from 'classnames';
 // FIX: Import React to use React.CSSProperties
 import React, { memo, ReactNode, useEffect, useRef, useState } from 'react';
 import { AudioRecorder } from '../../../lib/audio-recorder';
-import { useLogStore, useSettings } from '../../../lib/state';
+import { useLogStore } from '../../../lib/state';
 import { useAuth, clearUserConversations } from '../../../lib/auth';
 
 import { useLiveAPIContext } from '../../../contexts/LiveAPIContext';
@@ -49,8 +49,6 @@ function ControlTray({ children }: ControlTrayProps) {
     toggleTtsMute,
     isAudioPlaying,
   } = useLiveAPIContext();
-
-  const { currentSpeaker, setCurrentSpeaker } = useSettings();
 
   useEffect(() => {
     if (!connected && connectButtonRef.current) {
@@ -155,18 +153,6 @@ function ControlTray({ children }: ControlTrayProps) {
             ) : (
               <span className="material-symbols-outlined filled">mic_off</span>
             )}
-          </button>
-          <button
-            className={cn('action-button', { active: currentSpeaker === 'Staff Speaking' })}
-            onClick={() => setCurrentSpeaker(currentSpeaker === 'Staff Speaking' ? 'Guest Speaking' : 'Staff Speaking')}
-            title={`Current Speaker: ${currentSpeaker}. Click to switch.`}
-          >
-            <span className="material-symbols-outlined filled">
-              {currentSpeaker === 'Staff Speaking' ? 'person' : 'person_outline'}
-            </span>
-            <span className="speaker-label" style={{ fontSize: '10px', marginLeft: '4px' }}>
-              {currentSpeaker === 'Staff Speaking' ? 'Staff' : 'Guest'}
-            </span>
           </button>
           <button
             className={cn('action-button')}
