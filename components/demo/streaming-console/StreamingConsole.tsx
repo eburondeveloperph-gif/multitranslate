@@ -110,7 +110,7 @@ export default function StreamingConsole() {
       if (isFinal && text.trim()) {
         const structuredInput = {
           transcript: text.trim(),
-          detected_language: 'unknown',
+          context: "Analyze the transcript to detect the speaker (Staff vs Guest) and the language used.",
           active_guest_language: activeGuestLanguage
         };
         client.send([{ text: JSON.stringify(structuredInput) }]);

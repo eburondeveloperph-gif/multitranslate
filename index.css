@@ -663,6 +663,51 @@ header .export-button {
   user-select: none;
 }
 
+.language-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.lang-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--Neutral-15);
+  border: 1px solid var(--Neutral-30);
+  font-size: 11px;
+  transition: all 0.3s ease;
+}
+
+.lang-chip.staff {
+  border-left: 3px solid var(--Blue-500);
+}
+
+.lang-chip.guest {
+  border-left: 3px solid var(--gray-500);
+}
+
+.lang-chip.guest.active {
+  border-left-color: var(--accent-green);
+  background: rgba(168, 218, 181, 0.1);
+}
+
+.lang-chip .label {
+  color: var(--gray-300);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lang-chip .value {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .control-tray .connection-container:not(.connected) .text-indicator {
   opacity: 0;
 }
